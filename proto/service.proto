@@ -1,0 +1,211 @@
+syntax = "proto3";
+package jgproto;
+
+enum Role 
+{
+    none = 0;
+    admin = 100;
+    datadmin = 101;
+    researcher = 102;
+    intern = 199;
+}
+
+enum UserStatus
+{
+    init = 0;
+    normal = 1;
+    blocked = 2;
+    removed = 3;
+}
+
+enum Operation
+{
+    null = 0;
+    read = 1;
+    write = 2;
+    manage = 3;
+}
+
+enum AuthCode
+{
+    null_code = 0;
+    raw_auth_code = 1000;
+    label_auth_code = 2000;
+    feature_auth_code = 3000;
+    factor_auth_code = 4000;
+    alpha_auth_code = 5000;
+}
+
+service DAC {
+
+    rpc AddUser (UserRequest) returns (CommonResult);
+    rpc ModifyUser (UserRequest) returns (CommonResult);
+    rpc DeleteUser (CommonStringRequest) returns (CommonResult);
+    rpc ListUser (LoginInfo) returns (UserInfos);
+
+    rpc CreateAlphaFactor (FactorRequest) returns (FcAclResult); // 创建高级因子
+    rpc ModifyAlphaFactor (FactorRequest) returns (CommonResult); // 改level、改信息等
+    rpc DeleteAlphaFactor (FactorRequest) returns (FcAclResult);
+    rpc ListAlphaFactor (LoginInfo) returns (FactorList);
+    rpc GetAlphaFactor (FactorRequest) returns (FactorResult); // 获取高级因子信息
+
+    rpc CreateFcGroup (GroupRequest) returns (CommonResult);
+    rpc ModifyFcGroup (GroupRequest) returns (CommonResult);
+    rpc ModifyFcGroupContent (GroupFcsRequest) returns (CommonResult); // 增删改
+    rpc DeleteFcGroup (CommonStringRequest) returns (CommonResult);
+    rpc ListFcGroup (LoginInfo) returns (FcGroups);
+
+    // rpc SetFcAcl (FcAclRequest) returns (CommonResult); // 授权/回收 组、单个因子
+    rpc CheckFcAcl (FcAclRequest) returns (FcAclResult); // 检查是否具有操作因子的权限
+
+    rpc CreateNewData (DataRequest) returns (AclResult); // 创建新的其他数据类型
+    rpc DeleteData (DataRequest) returns (AclResult);
+    rpc CheckAcl (AclRequest) returns (AclResult); // 检查是否具有操作数据的权限
+}
+
+// 每次操作需要携带登录信息证明自身身份
+message LoginInfo {
+    string account = 1;
+    string password = 2;
+}
+
+message CommonResult {
+    int32 code = 1;         // 0 成功
+    string detail = 2;
+}
+
+message CommonStringRequest {
+    LoginInfo loginfo = 1;
+    string id = 2;
+}
+
+message UserInfo {
+    string account = 1;
+    string name = 2;
+    string password = 3;
+    Role role = 4;
+    UserStatus status = 5;
+    string db_account = 6;
+    string db_password = 7;
+}
+
+message UserRequest {
+    LoginInfo loginfo = 1;
+    UserInfo userinfo = 2;
+}
+
+message UserInfos {
+    repeated UserInfo users = 1;
+    int32 code = 2;
+    string detail = 3;
+}
+
+message DataInfo {
+    int32 id = 1;           // 无需传入
+    string name = 2;        // 数据名称，不能包含中文和特殊字符
+    AuthCode category = 3;  // 数据类型
+    string createtime = 4;  // 创建时间
+    string description = 5; // 描述信息
+    string remark = 6;      // 备注信息
+    string db_table = 7;    // 实际数据库表名，无需传入
+}
+
+message DataRequest {
+    LoginInfo loginfo = 1;
+    DataInfo datainfo = 2;
+}
+
+message AclRequest {
+    LoginInfo loginfo = 1;      // 当前操作用户登录信息
+    string dataname = 2;        // 数据名称
+    AuthCode datacategory = 3;  // 数据类型
+    Operation operation = 4;    // 操作类型
+}
+
+message AclResult {
+    int32 code = 1;         // 0:成功 1:权限不足 2:数据不存在
+    string detail = 2;
+    string db_account = 3;  // 对应实际数据库的访问账户
+    string db_password = 4;
+    string db_table = 5;    // 对应实际数据表标识
+}
+
+message FcAclRequest {
+    LoginInfo loginfo = 1;          // 当前操作用户登录信息
+    string factorname = 2;          // 因子名称
+    string factorcategory = 3;      // 因子类型
+    Operation operation = 4;        // 操作类型
+}
+
+message FcAclResult {
+    int32 code = 1;         // 0:成功 1:权限不足 2:因子不存在
+    string detail = 2;
+    string db_account = 3;  // 对应实际数据库的访问账户
+    string db_password = 4;
+    string db_table = 5;    // 对应实际数据表标识
+}
+
+message Factor {
+    int32 id = 1;           // 无需传入
+    string name = 2;        // 因子名称
+    string category = 3;    // 因子类型
+    string author = 4;      // 因子作者
+    string createtime = 5;  // 创建时间
+    int32 levelgroup = 6;   // 因子等级，创建因子时无需传入
+    string description = 7; // 描述信息
+    string remark = 8;      // 备注信息
+    string source = 9;      // 因子来源
+    string db_table = 10;   // 实际数据库表名，无需传入
+}
+
+message FactorRequest {
+    LoginInfo loginfo = 1;
+    Factor factor = 2;
+}
+
+message FactorResult {
+    int32 code = 1;
+    string detail = 2;
+    Factor factor = 3;
+}
+
+message FactorList {
+    int32 code = 1;
+    string detail = 2;
+    repeated Factor factors = 3;
+}
+
+message FcGroup {
+    int32 id = 1;
+    string name = 2;
+    string creator = 3;
+    repeated string admins = 4;
+    repeated string members = 5;
+    string createtime = 6;
+    repeated string factors = 7;
+}
+
+message GroupRequest {
+    LoginInfo loginfo = 1;
+    FcGroup fcgroup = 2;
+}
+
+message FcGroups {
+    repeated FcGroup groups = 1;
+    int32 code = 2;
+    string detail = 3;
+}
+
+message GroupFcs {
+    repeated string addfactors = 1;
+    repeated string delfactors = 2;
+    map<string, string> chgfactors = 3;
+    int32 code = 4;
+    string detail = 5;
+}
+
+message GroupFcsRequest {
+    LoginInfo loginfo = 1;
+    string id = 2;
+    GroupFcs gfcs = 3;
+}
